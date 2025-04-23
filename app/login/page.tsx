@@ -59,7 +59,7 @@ export default function LoginPage() {
             <FileText className="h-8 w-8 text-white" />
           </div>
           <h1 className="text-3xl font-bold">Medcol Docs</h1>
-          <p className="text-gray-500">Sistema de Gestión de Documentos de Dispensación</p>
+          <p className="text-grey-500">Sistema de Gestión de Documentos de Dispensación</p>
         </div>
 
         <div className="rounded-lg border bg-white p-8 shadow-sm">

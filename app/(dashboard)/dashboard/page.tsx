@@ -174,3 +174,4 @@ export default function DashboardPage() {
   )
 }
 
+<div className="hidden border-border" />

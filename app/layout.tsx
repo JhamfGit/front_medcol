@@ -11,7 +11,7 @@ export const metadata: Metadata = {
   title: "Medcol Docs - Panel Administrativo",
   description: "Sistema de gestión de documentos médicos",
 }
-
+console.log("layout cargado")
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -25,6 +25,8 @@ export default function RootLayout({
         </ThemeProvider>
       </body>
     </html>
+    
   )
 }
+
 
