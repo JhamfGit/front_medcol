@@ -65,32 +65,33 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        <Card>
-          <CardHeader>
-            <CardTitle>Acciones Rápidas</CardTitle>
-            <CardDescription>Tareas comunes que puedes realizar</CardDescription>
-          </CardHeader>
-          <CardContent className="grid gap-4">
-            <Button asChild className="w-full">
-              <Link href="/document-capture">
-                <Upload className="mr-2 h-4 w-4" />
-                Subir Nuevo Documento
-              </Link>
-            </Button>
-            <Button asChild variant="outline" className="w-full">
-              <Link href="/document-consultation">
-                <FileText className="mr-2 h-4 w-4" />
-                Ver Documentos Recientes
-              </Link>
-            </Button>
-            <Button asChild variant="outline" className="w-full">
-              <Link href="/medication-record">
-                <Pill className="mr-2 h-4 w-4" />
-                Revisar Registros de Medicamentos
-              </Link>
-            </Button>
-          </CardContent>
-        </Card>
+      <Card className="max-w-md w-full">
+  <CardHeader>
+    <CardTitle>Acciones Rápidas</CardTitle>
+    <CardDescription>Tareas comunes que puedes realizar</CardDescription>
+  </CardHeader>
+  <CardContent className="grid gap-4">
+    <Button asChild className="w-full overflow-hidden text-ellipsis whitespace-nowrap">
+      <Link href="/document-capture" className="flex items-center overflow-hidden text-ellipsis whitespace-nowrap">
+        <Upload className="mr-2 h-4 w-4 flex-shrink-0" />
+        <span className="truncate">Subir Nuevo Documento</span>
+      </Link>
+    </Button>
+    <Button asChild variant="outline" className="w-full overflow-hidden text-ellipsis whitespace-nowrap">
+      <Link href="/document-consultation" className="flex items-center overflow-hidden text-ellipsis whitespace-nowrap">
+        <FileText className="mr-2 h-4 w-4 flex-shrink-0" />
+        <span className="truncate">Ver Documentos Recientes</span>
+      </Link>
+    </Button>
+    <Button asChild variant="outline" className="w-full overflow-hidden text-ellipsis whitespace-nowrap">
+      <Link href="/medication-record" className="flex items-center overflow-hidden text-ellipsis whitespace-nowrap">
+        <Pill className="mr-2 h-4 w-4 flex-shrink-0" />
+        <span className="truncate">Revisar Registros de Medicamentos</span>
+      </Link>
+    </Button>
+  </CardContent>
+</Card>
+
 
         <Card>
           <CardHeader>

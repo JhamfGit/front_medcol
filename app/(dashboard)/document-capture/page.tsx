@@ -15,43 +15,31 @@ import { Search, Upload, Camera, FileText, Download, Eye, Check, X } from "lucid
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { useAuth } from "@/app/context/auth-context"
 import { useRouter } from "next/navigation"
+import { getPatientsFromApi } from '@/lib/patient'; // 👈 Importas tu función limpia
+
 
 // Datos simulados de pacientes (en una aplicación real, esto vendría de una API)
-const patientData = [
-  {
-    cedula: "1098765432",
-    nombre: "Maria Alejandra Rodriguez Gomez",
-    direccion: "Calle 123 #45-67, Bogotá, Colombia",
-    eps: "Sanitas EPS",
-    msd: "MSD-001",
-  },
-  {
-    cedula: "0987654321",
-    nombre: "Carlos Andrés Martínez López",
-    direccion: "Carrera 45 #12-34, Medellín, Colombia",
-    eps: "Nueva EPS",
-    msd: "MSD-002",
-  },
-  {
-    cedula: "5678901234",
-    nombre: "Ana María Pérez Sánchez",
-    direccion: "Avenida 67 #89-12, Cali, Colombia",
-    eps: "Compensar EPS",
-    msd: "MSD-003",
-  },
-]
+// Primero declara el tipo arriba en tu archivo (antes de los useState)
 
 const formSchema = z.object({
-  searchType: z.enum(["msd", "cedula"]),
+  searchType: z.enum(["factura","idusuario"]),
   searchTerm: z.string().min(1, "Por favor, introduce un término de búsqueda"),
 })
+
+type Patient = {
+  idusuario: string;
+  paciente: string;
+  ciudad: string;
+  drogueria: string;
+  factura: string;
+};
 
 export default function DocumentCapturePage() {
   const { user } = useAuth()
   const router = useRouter()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSuccess, setIsSuccess] = useState(false)
-  const [patientFound, setPatientFound] = useState<(typeof patientData)[0] | null>(null)
+  //const [patientFound, setPatientFound] = useState<(typeof fetchPatients)[0] | null>(null)
   const [isCameraOpen, setIsCameraOpen] = useState(false)
   const [currentDocumentType, setCurrentDocumentType] = useState<string>("")
   const [capturedImages, setCapturedImages] = useState<Record<string, string>>({})
@@ -61,14 +49,46 @@ export default function DocumentCapturePage() {
   const [previewImage, setPreviewImage] = useState<string | null>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  // Ahora tus estados
+  const [patients, setPatients] = useState<Patient[]>([]);
+  const [patientFound, setPatientFound] = useState<Patient | null>(null);
+  const [loadingPatients, setLoadingPatients] = useState<boolean>(true);
+  const [errorPatients, setErrorPatients] = useState<string | null>(null);
 
-  const form = useForm<z.infer<typeof formSchema>>({
+  // Efecto para traer pacientes al cargar la página
+  const fetchPatients = async (params: { id_documento?: string; factura?: string }) => {
+    try {
+      setLoadingPatients(true);
+  
+      const data = await getPatientsFromApi(params);
+  
+      console.log('🚀 Pacientes recibidos:', data);
+  
+      setPatients(data.data);
+  
+      if (data.data.length > 0) {
+        setPatientFound(data.data[0]); // 👈 Aquí tomas el primer paciente encontrado
+      } else {
+        setPatientFound(null); // No se encontró paciente
+      }
+  
+    } catch (err: any) {
+      console.error('Error al traer pacientes:', err);
+      setErrorPatients(err.message || 'Error desconocido');
+    } finally {
+      setLoadingPatients(false);
+    }
+  };
+  
+  
+ const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      searchType: "msd",
+      searchType: "factura",
       searchTerm: "",
     },
   })
+  
 
   // Redirigir si el usuario es externo
   useEffect(() => {
@@ -99,40 +119,61 @@ export default function DocumentCapturePage() {
   }
 
   // Función para buscar paciente
-  const searchPatient = (data: z.infer<typeof formSchema>) => {
-    let found = null
-    if (data.searchType === "msd") {
-      found = patientData.find((patient) => patient.msd === data.searchTerm)
-    } else {
-      found = patientData.find((patient) => patient.cedula === data.searchTerm)
+  
+  const searchPatient = async (data: z.infer<typeof formSchema>) => {
+    try {
+      setLoadingPatients(true);
+  
+      let response;
+  
+      if (data.searchType === "factura") {
+        response = await getPatientsFromApi({ factura: data.searchTerm });
+        console.log('Paciente encontrado por factura:', response);
+      } else {
+        response = await getPatientsFromApi({ id_documento: data.searchTerm });
+        console.log('Paciente encontrado por documento:', response);
+      }
+  
+      setPatients(response.data);
+  
+      if (response.data.length > 0) {
+        setPatientFound(response.data[0]);
+      } else {
+        setPatientFound(null);
+      }
+  
+    } catch (error) {
+      console.error('Error buscando paciente:', error);
+      setErrorPatients('Error buscando paciente');
+    } finally {
+      setLoadingPatients(false);
     }
-
-    if (found) {
-      setPatientFound(found)
-    } else {
-      setPatientFound(null)
-      alert("No se encontró ningún paciente con los datos proporcionados.")
-    }
-  }
+  };
+  
+  
+  
 
   // Función para abrir la cámara
-  const openCamera = (documentType: string) => {
+  const openCamera = async (documentType: string) => {
     setCurrentDocumentType(documentType)
-
-    navigator.mediaDevices
-      .getUserMedia({ video: true })
-      .then((mediaStream) => {
-        setStream(mediaStream)
+    setIsCameraOpen(true)
+  
+    try {
+      const mediaStream = await navigator.mediaDevices.getUserMedia({ video: true })
+      setStream(mediaStream)
+  
+      setTimeout(() => {
         if (videoRef.current) {
           videoRef.current.srcObject = mediaStream
+          videoRef.current.play().catch((error) => console.error("No se pudo iniciar el video:", error))
         }
-        setIsCameraOpen(true)
-      })
-      .catch((error) => {
-        console.error("Error al acceder a la cámara:", error)
-        alert("No se pudo acceder a la cámara. Por favor, verifica los permisos.")
-      })
+      }, 300) // esperar a que el modal renderice el <video>
+    } catch (error) {
+      console.error("Error al acceder a la cámara:", error)
+      alert("No se pudo acceder a la cámara. Por favor, verifica los permisos.")
+    }
   }
+  
 
   // Función para capturar imagen
   const captureImage = () => {
@@ -243,13 +284,22 @@ export default function DocumentCapturePage() {
         <p className="text-muted-foreground">Sube documentos de dispensación de medicamentos</p>
       </div>
 
-      {isSuccess && (
-        <Alert className="bg-green-50">
-          <Check className="h-4 w-4 text-green-600" />
-          <AlertTitle>Éxito</AlertTitle>
-          <AlertDescription>Los documentos han sido guardados correctamente.</AlertDescription>
-        </Alert>
-      )}
+        {isSuccess && (
+          <Dialog open={isSuccess} onOpenChange={() => {}}>
+            <DialogContent className="sm:max-w-[400px]">
+              <DialogHeader>
+                <div className="flex flex-col items-center justify-center">
+                  <Check className="h-10 w-10 text-green-600 mb-2" />
+                  <DialogTitle className="text-center">Éxito</DialogTitle>
+                  <DialogDescription className="text-center mt-2">
+                    Los documentos han sido guardados correctamente.
+                  </DialogDescription>
+                </div>
+              </DialogHeader>
+            </DialogContent>
+          </Dialog>
+        )}
+
 
       <Card>
         <CardHeader>
@@ -269,24 +319,24 @@ export default function DocumentCapturePage() {
                         <div className="flex items-center space-x-2">
                           <input
                             type="radio"
-                            id="msd"
-                            value="msd"
-                            checked={field.value === "msd"}
-                            onChange={() => field.onChange("msd")}
+                            id="factura"
+                            value="factura"
+                            checked={field.value === "factura"}
+                            onChange={() => field.onChange("factura")}
                             className="mr-1"
                           />
-                          <label htmlFor="msd">MSD Number</label>
+                          <label htmlFor="factura">MSD Number</label> {/* 👈 Usuario ve "MSD Number" pero value es "factura" */}
                         </div>
                         <div className="flex items-center space-x-2">
                           <input
                             type="radio"
-                            id="cedula"
-                            value="cedula"
-                            checked={field.value === "cedula"}
-                            onChange={() => field.onChange("cedula")}
+                            id="idusuario"
+                            value="idusuario"
+                            checked={field.value === "idusuario"}
+                            onChange={() => field.onChange("idusuario")}
                             className="mr-1"
                           />
-                          <label htmlFor="cedula">ID Card (Cédula)</label>
+                          <label htmlFor="idusuario">ID Card (Cédula)</label> {/* 👈 Usuario ve "Cédula" pero value es "idusuario" */}
                         </div>
                       </FormItem>
                     )}
@@ -303,7 +353,7 @@ export default function DocumentCapturePage() {
                           <div className="relative">
                             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                             <Input
-                              placeholder={`Introduce ${form.getValues().searchType === "msd" ? "MSD" : "cédula"}`}
+                              placeholder={`Introduce ${form.getValues().searchType === "factura" ? "MSD" : "cédula"}`}
                               className="pl-8"
                               {...field}
                             />
@@ -334,19 +384,19 @@ export default function DocumentCapturePage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <h3 className="text-sm font-medium text-gray-500">Nombre Completo</h3>
-                  <p className="mt-1 text-lg font-medium">{patientFound.nombre}</p>
+                  <p className="mt-1 text-lg font-medium">{patientFound.paciente}</p>
                 </div>
                 <div>
                   <h3 className="text-sm font-medium text-gray-500">Número de Cédula</h3>
-                  <p className="mt-1 text-lg font-medium">{patientFound.cedula}</p>
+                  <p className="mt-1 text-lg font-medium">{patientFound.idusuario}</p>
                 </div>
                 <div>
                   <h3 className="text-sm font-medium text-gray-500">Dirección</h3>
-                  <p className="mt-1 text-lg font-medium">{patientFound.direccion}</p>
+                  <p className="mt-1 text-lg font-medium">{patientFound.ciudad}</p>
                 </div>
                 <div>
                   <h3 className="text-sm font-medium text-gray-500">EPS</h3>
-                  <p className="mt-1 text-lg font-medium">{patientFound.eps}</p>
+                  <p className="mt-1 text-lg font-medium">{patientFound.drogueria}</p>
                 </div>
               </div>
             </CardContent>
@@ -355,7 +405,7 @@ export default function DocumentCapturePage() {
           <Card>
             <CardHeader>
               <CardTitle>Documentos Requeridos</CardTitle>
-              <CardDescription>Sube o captura los siguientes documentos requeridos</CardDescription>
+              <CardDescription>Sube o captura los siguientes documentos requeridos<br />*Solo un Documento por sección..*</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               {/* Autorización */}
@@ -637,33 +687,43 @@ export default function DocumentCapturePage() {
       </Dialog>
 
       {/* Diálogo para previsualización de documentos */}
-      <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
-        <DialogContent className="sm:max-w-[700px]">
-          <DialogHeader>
-            <DialogTitle>Previsualización de Documento</DialogTitle>
-          </DialogHeader>
+        <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
+          <DialogContent className="sm:max-w-[700px]">
+            <DialogHeader>
+              <DialogTitle>Previsualización de Documento</DialogTitle>
+            </DialogHeader>
 
-          <div className="flex justify-center">
-            <img
-              src={previewImage || "/placeholder.svg"}
-              alt="Documento"
-              className="max-h-[500px] object-contain border rounded-lg"
-            />
-          </div>
+            <div className="flex justify-center">
+              <img
+                src={previewImage || "/placeholder.svg"}
+                alt="Documento"
+                className="max-h-[500px] object-contain border rounded-lg"
+              />
+            </div>
 
-          <div className="flex justify-end space-x-2">
-            <Button variant="outline" onClick={() => setIsPreviewOpen(false)}>
-              Cerrar
-            </Button>
-            {previewImage && (
-              <Button onClick={() => window.open(previewImage, "_blank")}>
-                <Download className="mr-2 h-4 w-4" />
-                Descargar
+            <div className="flex justify-end space-x-2">
+              <Button variant="outline" onClick={() => setIsPreviewOpen(false)}>
+                Cerrar
               </Button>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
+              {previewImage && (
+                <Button
+                  onClick={() => {
+                    const link = document.createElement('a')
+                    link.href = previewImage
+                    link.download = 'documento_capturado.png' // Nombre del archivo descargado
+                    document.body.appendChild(link)
+                    link.click()
+                    document.body.removeChild(link)
+                  }}
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  Descargar
+                </Button>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
+
     </div>
   )
 }
