@@ -7,14 +7,12 @@ import Cookies from "js-cookie"
 type User = {
   id: string
   name: string
-  email: string
   role: "admin" | "user" | "externo"
-  position?: string
 }
 
 type AuthContextType = {
   user: User | null
-  login: (email: string, password: string) => Promise<boolean>
+  login: (usuario: string, password: string) => Promise<boolean>
   logout: () => void
   isLoading: boolean
 }
@@ -27,69 +25,49 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter()
 
   useEffect(() => {
-    // Verificar si el usuario ha iniciado sesión
     const storedUser = Cookies.get("medcol-user")
     if (storedUser) {
       try {
         setUser(JSON.parse(storedUser))
       } catch (e) {
-        console.error("Error al analizar los datos del usuario", e)
+        console.error("Error al leer los datos del usuario desde cookies:", e)
       }
     }
     setIsLoading(false)
   }, [])
 
-  const login = async (email: string, password: string) => {
+  const login = async (usuario: string, password: string) => {
     setIsLoading(true)
     try {
-      // Simulación de llamada a API - en una aplicación real, esto sería un fetch a tu backend
-      await new Promise((resolve) => setTimeout(resolve, 1000))
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/login`, {
+        
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ usuario, password }), // ✅ campo correcto
+      })
 
-      // Validación simulada - reemplazar con validación API real
-      if (email === "admin@medcol.com" && password === "password") {
-        const userData: User = {
-          id: "1",
-          name: "Usuario Administrador",
-          email: "admin@medcol.com",
-          role: "admin",
-          position: "Administrador del Sistema",
-        }
-        setUser(userData)
-        Cookies.set("medcol-user", JSON.stringify(userData), { expires: 7 })
-        setIsLoading(false)
-        return true
-      } else if (email === "user@medcol.com" && password === "password") {
-        const userData: User = {
-          id: "2",
-          name: "Usuario Regular",
-          email: "user@medcol.com",
-          role: "user",
-          position: "Personal Médico",
-        }
-        setUser(userData)
-        Cookies.set("medcol-user", JSON.stringify(userData), { expires: 7 })
-        setIsLoading(false)
-        return true
-      } else if (email === "externo@medcol.com" && password === "password") {
-        const userData: User = {
-          id: "3",
-          name: "Usuario Externo",
-          email: "externo@medcol.com",
-          role: "externo",
-          position: "Consultor Externo",
-        }
-        setUser(userData)
-        Cookies.set("medcol-user", JSON.stringify(userData), { expires: 7 })
-        setIsLoading(false)
-        return true
+      if (!response.ok) {
+        throw new Error("Credenciales inválidas")
       }
 
-      setIsLoading(false)
-      return false
+      const data = await response.json()
+
+      const userData: User = {
+        id: data.user.id_usuario.toString(),
+        name: data.user.usuario,
+        role: data.user.role ?? "user",
+      }
+
+      setUser(userData)
+      Cookies.set("medcol-user", JSON.stringify(userData), { expires: 7 })
+      return true
     } catch (error) {
       console.error("Error de inicio de sesión:", error)
-      setIsLoading(false)
       return false
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -99,7 +77,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     router.push("/login")
   }
 
-  return <AuthContext.Provider value={{ user, login, logout, isLoading }}>{children}</AuthContext.Provider>
+  return (
+    <AuthContext.Provider value={{ user, login, logout, isLoading }}>
+      {children}
+    </AuthContext.Provider>
+  )
 }
 
 export function useAuth() {
@@ -109,4 +91,3 @@ export function useAuth() {
   }
   return context
 }
-

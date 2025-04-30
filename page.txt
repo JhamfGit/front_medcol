@@ -15,8 +15,8 @@ import { Search, Upload, Camera, FileText, Download, Eye, Check, X } from "lucid
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { useAuth } from "@/app/context/auth-context"
 import { useRouter } from "next/navigation"
-import { getPatientsFromApi } from '@/lib/patient';
-import { Trash } from "lucide-react"
+import { getPatientsFromApi } from '@/lib/patient'; // 👈 Importas tu función limpia
+
 
 // Datos simulados de pacientes (en una aplicación real, esto vendría de una API)
 // Primero declara el tipo arriba en tu archivo (antes de los useState)
@@ -38,27 +38,50 @@ export default function DocumentCapturePage() {
   const { user } = useAuth()
   const router = useRouter()
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [documentError, setDocumentError] = useState<string | null>(null)
   const [isSuccess, setIsSuccess] = useState(false)
   //const [patientFound, setPatientFound] = useState<(typeof fetchPatients)[0] | null>(null)
   const [isCameraOpen, setIsCameraOpen] = useState(false)
   const [currentDocumentType, setCurrentDocumentType] = useState<string>("")
-  const [capturedImages, setCapturedImages] = useState<Record<string, any>>({})
-  const [uploadedFiles, setUploadedFiles] = useState<Record<string, any>>({})
+  const [capturedImages, setCapturedImages] = useState<Record<string, string>>({})
+  const [uploadedFiles, setUploadedFiles] = useState<Record<string, File>>({})
   const [stream, setStream] = useState<MediaStream | null>(null)
   const [isPreviewOpen, setIsPreviewOpen] = useState(false)
   const [previewImage, setPreviewImage] = useState<string | null>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const [cedulaFront, setCedulaFront] = useState<string | null>(null)
-
   // Ahora tus estados
   const [patients, setPatients] = useState<Patient[]>([]);
   const [patientFound, setPatientFound] = useState<Patient | null>(null);
   const [loadingPatients, setLoadingPatients] = useState<boolean>(true);
   const [errorPatients, setErrorPatients] = useState<string | null>(null);
 
-  const form = useForm<z.infer<typeof formSchema>>({
+  // Efecto para traer pacientes al cargar la página
+  const fetchPatients = async (params: { id_documento?: string; factura?: string }) => {
+    try {
+      setLoadingPatients(true);
+  
+      const data = await getPatientsFromApi(params);
+  
+      console.log('🚀 Pacientes recibidos:', data);
+  
+      setPatients(data.data);
+  
+      if (data.data.length > 0) {
+        setPatientFound(data.data[0]); // 👈 Aquí tomas el primer paciente encontrado
+      } else {
+        setPatientFound(null); // No se encontró paciente
+      }
+  
+    } catch (err: any) {
+      console.error('Error al traer pacientes:', err);
+      setErrorPatients(err.message || 'Error desconocido');
+    } finally {
+      setLoadingPatients(false);
+    }
+  };
+  
+  
+ const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       searchType: "factura",
@@ -97,35 +120,35 @@ export default function DocumentCapturePage() {
 
   // Función para buscar paciente
   
-    const searchPatient = async (data: z.infer<typeof formSchema>) => {
-      try {
-        setLoadingPatients(true);
-    
-        let response;
-    
-        if (data.searchType === "factura") {
-          response = await getPatientsFromApi({ factura: data.searchTerm });
-          console.log('Paciente encontrado por factura:', response);
-        } else {
-          response = await getPatientsFromApi({ id_documento: data.searchTerm });
-          console.log('Paciente encontrado por documento:', response);
-        }
-    
-        setPatients(response.data);
-    
-        if (response.data.length > 0) {
-          setPatientFound(response.data[0]);
-        } else {
-          setPatientFound(null);
-        }
-    
-      } catch (error) {
-        console.error('Error buscando paciente:', error);
-        setErrorPatients('Error buscando paciente');
-      } finally {
-        setLoadingPatients(false);
+  const searchPatient = async (data: z.infer<typeof formSchema>) => {
+    try {
+      setLoadingPatients(true);
+  
+      let response;
+  
+      if (data.searchType === "factura") {
+        response = await getPatientsFromApi({ factura: data.searchTerm });
+        console.log('Paciente encontrado por factura:', response);
+      } else {
+        response = await getPatientsFromApi({ id_documento: data.searchTerm });
+        console.log('Paciente encontrado por documento:', response);
       }
-    };
+  
+      setPatients(response.data);
+  
+      if (response.data.length > 0) {
+        setPatientFound(response.data[0]);
+      } else {
+        setPatientFound(null);
+      }
+  
+    } catch (error) {
+      console.error('Error buscando paciente:', error);
+      setErrorPatients('Error buscando paciente');
+    } finally {
+      setLoadingPatients(false);
+    }
+  };
   
   
   
@@ -158,81 +181,26 @@ export default function DocumentCapturePage() {
       const video = videoRef.current
       const canvas = canvasRef.current
       const context = canvas.getContext("2d")
-  
-      if (!context) return
-  
-      canvas.width = video.videoWidth
-      canvas.height = video.videoHeight
-      context.drawImage(video, 0, 0, canvas.width, canvas.height)
-      const imageDataUrl = canvas.toDataURL("image/png")
-  
-      // Si estamos capturando cédula
-      if (currentDocumentType === "cedula") {
-      if (!cedulaFront) {
-      // Primera foto (frontal)
-      setCedulaFront(imageDataUrl)
-      alert("Ahora toma la parte trasera de la cédula")
-      return
-      } else {
-      // Segunda foto (trasera) → combinar
-      combineCedulaImages(cedulaFront, imageDataUrl)
-      setCedulaFront(null)
-      if (stream) stream.getTracks().forEach((track) => track.stop())
-      setIsCameraOpen(false)
-      return
-    }
-  }
-  
-      // Otros documentos: guardar directamente
-  setCapturedImages((prev) => {
-    if (currentDocumentType === "msd") {
-          return {
-            ...prev,
-            [currentDocumentType]: [...(prev[currentDocumentType] || []), imageDataUrl],
-          }
-        }
-        return { ...prev, [currentDocumentType]: imageDataUrl }
-      })
-  
-      if (stream) {
-        stream.getTracks().forEach((track) => track.stop())
-      }
-      setIsCameraOpen(false)
-    }
-  }
 
-  //Función para unir las dos fotos de la cédula
-  const combineCedulaImages = (front: string, back: string) => {
-    const imgFront = new Image()
-    const imgBack = new Image()
-  
-    imgFront.onload = () => {
-      imgBack.onload = () => {
-        const canvas = document.createElement("canvas")
-        const width = Math.max(imgFront.width, imgBack.width)
-        const height = imgFront.height + imgBack.height
-  
-        canvas.width = width
-        canvas.height = height
-  
-        const ctx = canvas.getContext("2d")
-        if (ctx) {
-          ctx.drawImage(imgFront, 0, 0)
-          ctx.drawImage(imgBack, 0, imgFront.height)
-  
-          const combinedImage = canvas.toDataURL("image/png")
-          setCapturedImages((prev) => ({
-            ...prev,
-            cedula: combinedImage,
-          }))
+      if (context) {
+        canvas.width = video.videoWidth
+        canvas.height = video.videoHeight
+        context.drawImage(video, 0, 0, canvas.width, canvas.height)
+
+        const imageDataUrl = canvas.toDataURL("image/png")
+        setCapturedImages((prev) => ({
+          ...prev,
+          [currentDocumentType]: imageDataUrl,
+        }))
+
+        // Detener la cámara
+        if (stream) {
+          stream.getTracks().forEach((track) => track.stop())
         }
+        setIsCameraOpen(false)
       }
-      imgBack.src = back
     }
-    imgFront.src = front
   }
-  
-  
 
   // Función para cerrar la cámara
   const closeCamera = () => {
@@ -244,41 +212,26 @@ export default function DocumentCapturePage() {
 
   // Función para manejar la subida de archivos
   const handleFileUpload = (documentType: string, e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || [])
-  
-    if (documentType === "msd") {
+    if (e.target.files && e.target.files.length > 0) {
+      const file = e.target.files[0]
       setUploadedFiles((prev) => ({
         ...prev,
-        [documentType]: [...(prev[documentType] || []), ...files],
+        [documentType]: file,
       }))
-    } else if (files[0]) {
-      setUploadedFiles((prev) => ({
-        ...prev,
-        [documentType]: files[0],
-      }))
-    }
-  
-    // Opcional: vista previa de MSD desde archivos
-    files.forEach((file) => {
+
+      // Crear URL para previsualización
       const reader = new FileReader()
       reader.onload = (event) => {
-        const result = (event.target as FileReader)?.result
-        if (result) {
-          setCapturedImages((prev) => {
-            if (documentType === "msd") {
-              return {
-                ...prev,
-                [documentType]: [...(prev[documentType] || []), result],
-              }
-            }
-            return { ...prev, [documentType]: result }
-          })
+        if (event.target && event.target.result) {
+          setCapturedImages((prev) => ({
+            ...prev,
+            [documentType]: event.target?.result as string,
+          }))
         }
       }
       reader.readAsDataURL(file)
-    })    
+    }
   }
-    
 
   // Función para eliminar un documento
   const removeDocument = (documentType: string) => {
@@ -303,35 +256,14 @@ export default function DocumentCapturePage() {
 
   // Función para guardar todos los documentos
   const saveAllDocuments = () => {
-    const requiredDocs = ["cedula", "formula", "msd"]
-  
-    const missingDocs = requiredDocs.filter((doc) => {
-      const captured = capturedImages[doc]
-      const uploaded = uploadedFiles[doc]
-  
-      if (Array.isArray(captured)) return captured.length === 0
-      if (Array.isArray(uploaded)) return uploaded.length === 0
-      return !captured && !uploaded
-    })
-  
-    if (missingDocs.length > 0) {
-      const labels: Record<string, string> = {
-        cedula: "ID Card (Cédula)",
-        formula: "Fórmula Médica",
-        msd: "MSD",
-      }
-      const missingLabels = missingDocs.map((doc) => labels[doc]).join(", ")
-      setDocumentError(`Faltan los siguientes documentos obligatorios: ${missingLabels}`)
-      return
-    }
-  
-    setDocumentError(null)
     setIsSubmitting(true)
-  
+
+    // Simular envío a API
     setTimeout(() => {
       setIsSuccess(true)
       setIsSubmitting(false)
-  
+
+      // Resetear después de 3 segundos
       setTimeout(() => {
         setIsSuccess(false)
         setPatientFound(null)
@@ -340,7 +272,7 @@ export default function DocumentCapturePage() {
         form.reset()
       }, 3000)
     }, 1500)
-  }  
+  }
 
   // Verificar si hay documentos para guardar
   const hasDocumentsToSave = Object.keys(capturedImages).length > 0 || Object.keys(uploadedFiles).length > 0
@@ -661,8 +593,7 @@ export default function DocumentCapturePage() {
                       id="msd-upload"
                       type="file"
                       className="hidden"
-                      accept="image/*,pdf"
-                      multiple
+                      accept="image/*,.pdf"
                       onChange={(e) => handleFileUpload("msd", e)}
                     />
                     <Button variant="outline" onClick={() => openCamera("msd")}>
@@ -671,64 +602,36 @@ export default function DocumentCapturePage() {
                     </Button>
                   </div>
                 </div>
-                {Array.isArray(capturedImages["msd"]) ? (
-                  <div className="mt-4 grid grid-cols-2 gap-4">
-                    {capturedImages["msd"].map((img: string, idx: number) => (
-                      <div key={idx} className="relative bg-gray-50 p-4 rounded-md">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center">
-                            <FileText className="h-8 w-8 text-blue-500 mr-2" />
-                            <div>
-                              <p className="font-medium">MSD #{idx + 1}</p>
-                              <p className="text-sm text-gray-500">Documento capturado</p>
-                            </div>
-                          </div>
-                          <div className="flex space-x-2">
-                            <Button variant="ghost" size="sm" onClick={() => previewDocument(img)}>
-                              <Eye className="h-4 w-4 mr-1" />
-                              Ver
-                            </Button>
-                            <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              setCapturedImages((prev) => ({
-                                ...prev,
-                                msd: prev.msd.filter((i: string) => i !== img),
-                              }))
-                            }}
-                          >
-                            <Trash className="h-4 w-4 mr-1 text-red-500" />
-                            Eliminar
-                          </Button>
-                          </div>
+                {capturedImages["msd"] && (
+                  <div className="mt-4 relative bg-gray-50 p-4 rounded-md">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center">
+                        <FileText className="h-8 w-8 text-blue-500 mr-2" />
+                        <div>
+                          <p className="font-medium">MSD</p>
+                          <p className="text-sm text-gray-500">Documento capturado</p>
                         </div>
                       </div>
-                    ))}
-                  </div>
-                ) : (
-                  capturedImages["msd"] && (
-                    <div className="mt-4 relative bg-gray-50 p-4 rounded-md">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center">
-                          <FileText className="h-8 w-8 text-blue-500 mr-2" />
-                          <div>
-                            <p className="font-medium">MSD</p>
-                            <p className="text-sm text-gray-500">Documento capturado</p>
-                          </div>
-                        </div>
-                        <div className="flex space-x-2">
-                          <Button variant="ghost" size="sm" onClick={() => previewDocument(capturedImages["msd"])}
-                          >
-                            <Eye className="h-4 w-4 mr-1" />
-                            Ver
-                          </Button>
-                        </div>
+                      <div className="flex space-x-2">
+                        <Button variant="ghost" size="sm" onClick={() => previewDocument(capturedImages["msd"])}>
+                          <Eye className="h-4 w-4 mr-1" />
+                          Ver
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-red-500 hover:text-red-700"
+                          onClick={() => removeDocument("msd")}
+                        >
+                          <X className="h-4 w-4 mr-1" />
+                          Eliminar
+                        </Button>
                       </div>
                     </div>
-                  )
+                  </div>
                 )}
               </div>
+
               <div className="flex items-center space-x-2 pt-4">
                 <input
                   type="checkbox"
@@ -739,12 +642,7 @@ export default function DocumentCapturePage() {
                   Marcar como entrega pendiente
                 </label>
               </div>
-              {documentError && (
-                  <Alert variant="destructive" className="mt-4">
-                    <AlertTitle>Error</AlertTitle>
-                    <AlertDescription>{documentError}</AlertDescription>
-                  </Alert>
-                )}
+
               <div className="pt-4 flex justify-end">
                 <Button
                   onClick={saveAllDocuments}
@@ -803,19 +701,29 @@ export default function DocumentCapturePage() {
               />
             </div>
 
-          <div className="flex justify-end space-x-2">
-            <Button variant="outline" onClick={() => setIsPreviewOpen(false)}>
-              Cerrar
-            </Button>
-            {previewImage && (
-              <Button onClick={() => window.open(previewImage, "_blank")}>
-                <Download className="mr-2 h-4 w-4" />
-                Descargar
+            <div className="flex justify-end space-x-2">
+              <Button variant="outline" onClick={() => setIsPreviewOpen(false)}>
+                Cerrar
               </Button>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
+              {previewImage && (
+                <Button
+                  onClick={() => {
+                    const link = document.createElement('a')
+                    link.href = previewImage
+                    link.download = 'documento_capturado.png' // Nombre del archivo descargado
+                    document.body.appendChild(link)
+                    link.click()
+                    document.body.removeChild(link)
+                  }}
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  Descargar
+                </Button>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
+
     </div>
   )
 }

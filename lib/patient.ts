@@ -1,4 +1,4 @@
-// lib/api/patient.ts
+// lib/patient.ts
 
 export async function getPatientsFromApi(params: { id_documento?: string; factura?: string }) {
   const query = new URLSearchParams();
@@ -18,5 +18,5 @@ export async function getPatientsFromApi(params: { id_documento?: string; factur
   }
 
   const data = await res.json();
-  return data;
+  return data;
 }
