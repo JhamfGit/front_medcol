@@ -49,7 +49,7 @@ const documents = [
     fileUrl: "/placeholder.svg?height=600&width=400",
   },
   {
-    id: "DOC-004",
+    id: "DOC-001",
     patientId: "1098765432",
     patientName: "Maria Alejandra Rodriguez Gomez",
     type: "MSD",
@@ -75,6 +75,7 @@ export default function SavedDocumentsPage() {
   const [stream, setStream] = useState<MediaStream | null>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const [currentDocumentType, setCurrentDocumentType] = useState<string>("")
 
   const handleSearch = () => {
     if (!searchTerm) {
@@ -122,20 +123,24 @@ export default function SavedDocumentsPage() {
   }
 
   // Función para abrir la cámara
-  const openCamera = () => {
-    navigator.mediaDevices
-      .getUserMedia({ video: true })
-      .then((mediaStream) => {
-        setStream(mediaStream)
+  const openCamera = async (documentType: string) => {
+    setCurrentDocumentType(documentType)
+    setIsCameraOpen(true)
+  
+    try {
+      const mediaStream = await navigator.mediaDevices.getUserMedia({ video: true })
+      setStream(mediaStream)
+  
+      setTimeout(() => {
         if (videoRef.current) {
           videoRef.current.srcObject = mediaStream
+          videoRef.current.play().catch((error) => console.error("No se pudo iniciar el video:", error))
         }
-        setIsCameraOpen(true)
-      })
-      .catch((error) => {
-        console.error("Error al acceder a la cámara:", error)
-        alert("No se pudo acceder a la cámara. Por favor, verifica los permisos.")
-      })
+      }, 300) // esperar a que el modal renderice el <video>
+    } catch (error) {
+      console.error("Error al acceder a la cámara:", error)
+      alert("No se pudo acceder a la cámara. Por favor, verifica los permisos.")
+    }
   }
 
   // Función para capturar imagen
@@ -394,7 +399,6 @@ export default function SavedDocumentsPage() {
               Sube el documento pendiente para {currentDocument?.patientName} (MSD: {currentDocument?.msd})
             </DialogDescription>
           </DialogHeader>
-
           <div className="space-y-4 py-4">
             <div className="flex space-x-4">
               <Button
@@ -405,14 +409,23 @@ export default function SavedDocumentsPage() {
                 <Upload className="mr-2 h-4 w-4" />
                 Subir Archivo
               </Button>
-              <input id="upload-file" type="file" className="hidden" accept="image/*,.pdf" ref={fileInputRef} />
-              <Button variant="outline" className="flex-1" onClick={openCamera}>
+              <input
+                id="upload-file"
+                type="file"
+                className="hidden"
+                accept="image/*,.pdf"
+                ref={fileInputRef}
+              />
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => openCamera("msd")} // cambio aquí
+              >
                 <Camera className="mr-2 h-4 w-4" />
                 Tomar Foto
               </Button>
             </div>
           </div>
-
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsUploadDialogOpen(false)}>
               Cancelar

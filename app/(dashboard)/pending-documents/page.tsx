@@ -1,21 +1,56 @@
-"use client"
+"use client";
 
-import type React from "react"
-
-import { useState, useEffect, useRef } from "react"
-import { z } from "zod"
-import { useForm } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
-import { Button } from "@/components/ui/button"
-import { Form, FormControl, FormField, FormItem, FormMessage } from "@/components/ui/form"
-import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
-import { Search, Upload, Camera, FileText, Download, Eye, Check, X } from "lucide-react"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { useAuth } from "@/app/context/auth-context"
-import { useRouter } from "next/navigation"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import type React from "react";
+import { Trash } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { z } from "zod";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { Button } from "@/components/ui/button";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormMessage,
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import {
+  Search,
+  Upload,
+  Camera,
+  FileText,
+  Download,
+  Eye,
+  Check,
+  X,
+} from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { useAuth } from "@/app/context/auth-context";
+import { useRouter } from "next/navigation";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { DialogFooter } from "@/components/ui/dialog";
 
 // Datos simulados de pacientes (en una aplicación real, esto vendría de una API)
 const patientData = [
@@ -33,7 +68,7 @@ const patientData = [
     eps: "Nueva EPS",
     msd: "MSD-002",
   },
-]
+];
 
 // Documentos previamente almacenados
 const previousDocuments = [
@@ -45,13 +80,13 @@ const previousDocuments = [
   },
   {
     id: "DOC-002",
-    type: "ID Document",
+    type: "Documento de Identidad",
     uploadDate: "2023-05-15",
     fileUrl: "/placeholder.svg?height=600&width=400",
   },
   {
     id: "DOC-003",
-    type: "Medical Prescription",
+    type: "Prescripción médica",
     uploadDate: "2023-05-15",
     fileUrl: "/placeholder.svg?height=600&width=400",
   },
@@ -63,34 +98,40 @@ const previousDocuments = [
   },
   {
     id: "DOC-005",
-    type: "Patient Signature",
+    type: "Firma del paciente",
     uploadDate: "2023-05-15",
     fileUrl: "/placeholder.svg?height=600&width=400",
   },
-]
+];
 
 const formSchema = z.object({
   searchType: z.enum(["msd", "cedula"]),
   searchTerm: z.string().min(1, "Por favor, introduce un término de búsqueda"),
-})
+});
 
 export default function PendingDocumentsPage() {
-  const { user } = useAuth()
-  const router = useRouter()
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [isSuccess, setIsSuccess] = useState(false)
-  const [patientFound, setPatientFound] = useState<(typeof patientData)[0] | null>(null)
-  const [isCameraOpen, setIsCameraOpen] = useState(false)
-  const [currentDocumentType, setCurrentDocumentType] = useState<string>("")
-  const [capturedImages, setCapturedImages] = useState<Record<string, string>>({})
-  const [uploadedFiles, setUploadedFiles] = useState<Record<string, File>>({})
-  const [stream, setStream] = useState<MediaStream | null>(null)
-  const [isPreviewOpen, setIsPreviewOpen] = useState(false)
-  const [previewImage, setPreviewImage] = useState<string | null>(null)
-  const [isDocumentPreviewOpen, setIsDocumentPreviewOpen] = useState(false)
-  const [currentPreviewDocument, setCurrentPreviewDocument] = useState<(typeof previousDocuments)[0] | null>(null)
-  const videoRef = useRef<HTMLVideoElement>(null)
-  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const { user } = useAuth();
+  const router = useRouter();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false);
+  const [patientFound, setPatientFound] = useState<
+    (typeof patientData)[0] | null
+  >(null);
+  const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const [currentDocumentType, setCurrentDocumentType] = useState<string>("");
+  const [capturedImages, setCapturedImages] = useState<Record<string, any>>({});
+  const [uploadedFiles, setUploadedFiles] = useState<Record<string, File>>({});
+  const [stream, setStream] = useState<MediaStream | null>(null);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [isDocumentPreviewOpen, setIsDocumentPreviewOpen] = useState(false);
+  const [currentPreviewDocument, setCurrentPreviewDocument] = useState<
+    (typeof previousDocuments)[0] | null
+  >(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [cedulaFront, setCedulaFront] = useState<string | null>(null);
+  const [showBackAlert, setShowBackAlert] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -98,23 +139,23 @@ export default function PendingDocumentsPage() {
       searchType: "msd",
       searchTerm: "",
     },
-  })
+  });
 
   // Redirigir si el usuario es externo
   useEffect(() => {
     if (user?.role === "externo") {
-      router.push("/dashboard")
+      router.push("/dashboard");
     }
-  }, [user, router])
+  }, [user, router]);
 
   // Limpiar el stream de la cámara cuando se cierra
   useEffect(() => {
     return () => {
       if (stream) {
-        stream.getTracks().forEach((track) => track.stop())
+        stream.getTracks().forEach((track) => track.stop());
       }
-    }
-  }, [stream])
+    };
+  }, [stream]);
 
   // Si el usuario es externo, mostrar mensaje de acceso denegado
   if (user?.role === "externo") {
@@ -122,166 +163,248 @@ export default function PendingDocumentsPage() {
       <div className="flex h-full items-center justify-center">
         <div className="text-center">
           <h1 className="text-2xl font-bold">Acceso Denegado</h1>
-          <p className="text-muted-foreground">No tienes permiso para acceder a esta página.</p>
+          <p className="text-muted-foreground">
+            No tienes permiso para acceder a esta página.
+          </p>
         </div>
       </div>
-    )
+    );
   }
 
   // Función para buscar paciente
   const searchPatient = (data: z.infer<typeof formSchema>) => {
-    let found = null
+    let found = null;
     if (data.searchType === "msd") {
-      found = patientData.find((patient) => patient.msd === data.searchTerm)
+      found = patientData.find((patient) => patient.msd === data.searchTerm);
     } else {
-      found = patientData.find((patient) => patient.cedula === data.searchTerm)
+      found = patientData.find((patient) => patient.cedula === data.searchTerm);
     }
 
     if (found) {
-      setPatientFound(found)
+      setPatientFound(found);
     } else {
-      setPatientFound(null)
-      alert("No se encontró ningún paciente con los datos proporcionados.")
+      setPatientFound(null);
+      alert("No se encontró ningún paciente con los datos proporcionados.");
     }
-  }
+  };
 
   // Función para abrir la cámara
-  const openCamera = (documentType: string) => {
-    setCurrentDocumentType(documentType)
+  const openCamera = async (documentType: string) => {
+    setCurrentDocumentType(documentType);
+    setIsCameraOpen(true);
 
-    navigator.mediaDevices
-      .getUserMedia({ video: true })
-      .then((mediaStream) => {
-        setStream(mediaStream)
+    try {
+      const mediaStream = await navigator.mediaDevices.getUserMedia({
+        video: true,
+      });
+      setStream(mediaStream);
+
+      setTimeout(() => {
         if (videoRef.current) {
-          videoRef.current.srcObject = mediaStream
+          videoRef.current.srcObject = mediaStream;
+          videoRef.current
+            .play()
+            .catch((error) =>
+              console.error("No se pudo iniciar el video:", error)
+            );
         }
-        setIsCameraOpen(true)
-      })
-      .catch((error) => {
-        console.error("Error al acceder a la cámara:", error)
-        alert("No se pudo acceder a la cámara. Por favor, verifica los permisos.")
-      })
-  }
+      }, 300); // esperar a que el modal renderice el <video>
+    } catch (error) {
+      console.error("Error al acceder a la cámara:", error);
+      alert(
+        "No se pudo acceder a la cámara. Por favor, verifica los permisos."
+      );
+    }
+  };
 
   // Función para capturar imagen
   const captureImage = () => {
     if (videoRef.current && canvasRef.current && currentDocumentType) {
-      const video = videoRef.current
-      const canvas = canvasRef.current
-      const context = canvas.getContext("2d")
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      const context = canvas.getContext("2d");
 
-      if (context) {
-        canvas.width = video.videoWidth
-        canvas.height = video.videoHeight
-        context.drawImage(video, 0, 0, canvas.width, canvas.height)
+      if (!context) return;
 
-        const imageDataUrl = canvas.toDataURL("image/png")
-        setCapturedImages((prev) => ({
-          ...prev,
-          [currentDocumentType]: imageDataUrl,
-        }))
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const imageDataUrl = canvas.toDataURL("image/png");
 
-        // Detener la cámara
-        if (stream) {
-          stream.getTracks().forEach((track) => track.stop())
+      // Si estamos capturando cédula
+      if (currentDocumentType === "cedula") {
+        if (!cedulaFront) {
+          // Primera foto (frontal)
+          setCedulaFront(imageDataUrl);
+          setShowBackAlert(true);
+          return;
+        } else {
+          // Segunda foto (trasera) → combinar
+          combineCedulaImages(cedulaFront, imageDataUrl);
+          setCedulaFront(null);
+          if (stream) stream.getTracks().forEach((track) => track.stop());
+          setIsCameraOpen(false);
+          return;
         }
-        setIsCameraOpen(false)
       }
+
+      // Otros documentos: guardar directamente
+      setCapturedImages((prev) => {
+        if (currentDocumentType === "msd") {
+          return {
+            ...prev,
+            [currentDocumentType]: [
+              ...(prev[currentDocumentType] || []),
+              imageDataUrl,
+            ],
+          };
+        }
+        return { ...prev, [currentDocumentType]: imageDataUrl };
+      });
+
+      if (stream) {
+        stream.getTracks().forEach((track) => track.stop());
+      }
+      setIsCameraOpen(false);
     }
-  }
+  };
+
+  //Función para unir las dos fotos de la cédula
+  const combineCedulaImages = (front: string, back: string) => {
+    const imgFront = new Image();
+    const imgBack = new Image();
+
+    imgFront.onload = () => {
+      imgBack.onload = () => {
+        const canvas = document.createElement("canvas");
+        const width = Math.max(imgFront.width, imgBack.width);
+        const height = imgFront.height + imgBack.height;
+
+        canvas.width = width;
+        canvas.height = height;
+
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          ctx.drawImage(imgFront, 0, 0);
+          ctx.drawImage(imgBack, 0, imgFront.height);
+
+          const combinedImage = canvas.toDataURL("image/png");
+          setCapturedImages((prev) => ({
+            ...prev,
+            cedula: combinedImage,
+          }));
+        }
+      };
+      imgBack.src = back;
+    };
+    imgFront.src = front;
+  };
 
   // Función para cerrar la cámara
   const closeCamera = () => {
     if (stream) {
-      stream.getTracks().forEach((track) => track.stop())
+      stream.getTracks().forEach((track) => track.stop());
     }
-    setIsCameraOpen(false)
-  }
+    setIsCameraOpen(false);
+  };
 
   // Función para manejar la subida de archivos
-  const handleFileUpload = (documentType: string, e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = (
+    documentType: string,
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
     if (e.target.files && e.target.files.length > 0) {
-      const file = e.target.files[0]
+      const file = e.target.files[0];
       setUploadedFiles((prev) => ({
         ...prev,
         [documentType]: file,
-      }))
+      }));
 
       // Crear URL para previsualización
-      const reader = new FileReader()
+      const reader = new FileReader();
       reader.onload = (event) => {
         if (event.target && event.target.result) {
           setCapturedImages((prev) => ({
             ...prev,
             [documentType]: event.target?.result as string,
-          }))
+          }));
         }
-      }
-      reader.readAsDataURL(file)
+      };
+      reader.readAsDataURL(file);
     }
-  }
+  };
 
   // Función para previsualizar un documento almacenado
   const previewStoredDocument = (document: (typeof previousDocuments)[0]) => {
-    setCurrentPreviewDocument(document)
-    setIsDocumentPreviewOpen(true)
-  }
+    setCurrentPreviewDocument(document);
+    setIsDocumentPreviewOpen(true);
+  };
 
   // Función para previsualizar un documento capturado
   const previewCapturedDocument = (imageUrl: string) => {
-    setPreviewImage(imageUrl)
-    setIsPreviewOpen(true)
-  }
+    setPreviewImage(imageUrl);
+    setIsPreviewOpen(true);
+  };
 
   // Función para guardar todos los documentos
   const saveAllDocuments = () => {
-    setIsSubmitting(true)
+    setIsSubmitting(true);
 
     // Simular envío a API
     setTimeout(() => {
-      setIsSuccess(true)
-      setIsSubmitting(false)
+      setIsSuccess(true);
+      setIsSubmitting(false);
 
       // Resetear después de 3 segundos
       setTimeout(() => {
-        setIsSuccess(false)
-        setPatientFound(null)
-        setCapturedImages({})
-        setUploadedFiles({})
-        form.reset()
-      }, 3000)
-    }, 1500)
-  }
+        setIsSuccess(false);
+        setPatientFound(null);
+        setCapturedImages({});
+        setUploadedFiles({});
+        form.reset();
+      }, 3000);
+    }, 1500);
+  };
 
   // Verificar si hay documentos para guardar
-  const hasDocumentsToSave = Object.keys(capturedImages).length > 0 || Object.keys(uploadedFiles).length > 0
+  const hasDocumentsToSave =
+    Object.keys(capturedImages).length > 0 ||
+    Object.keys(uploadedFiles).length > 0;
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Capturar Documentos Pendientes</h1>
+        <h1 className="text-3xl font-bold tracking-tight">
+          Capturar Documentos Pendientes
+        </h1>
         <p className="text-muted-foreground">
-          Almacena documentos adicionales para entregas de medicamentos pendientes
+          Almacena documentos adicionales para entregas de medicamentos
+          pendientes
         </p>
       </div>
-
       {isSuccess && (
         <Alert className="bg-green-50">
           <Check className="h-4 w-4 text-green-600" />
           <AlertTitle>Éxito</AlertTitle>
-          <AlertDescription>Los documentos han sido guardados correctamente.</AlertDescription>
+          <AlertDescription>
+            Los documentos han sido guardados correctamente.
+          </AlertDescription>
         </Alert>
       )}
-
       <Card>
         <CardHeader>
           <CardTitle>Buscar Paciente</CardTitle>
-          <CardDescription>Introduce el número MSD o cédula para buscar la información del paciente</CardDescription>
+          <CardDescription>
+            Introduce el número MSD o cédula para buscar la información del
+            paciente
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(searchPatient)} className="space-y-4">
+            <form
+              onSubmit={form.handleSubmit(searchPatient)}
+              className="space-y-4"
+            >
               <div className="flex flex-col space-y-4">
                 <div className="flex space-x-4">
                   <FormField
@@ -326,7 +449,11 @@ export default function PendingDocumentsPage() {
                           <div className="relative">
                             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                             <Input
-                              placeholder={`Introduce ${form.getValues().searchType === "msd" ? "MSD" : "cédula"}`}
+                              placeholder={`Introduce ${
+                                form.getValues().searchType === "msd"
+                                  ? "MSD"
+                                  : "cédula"
+                              }`}
                               className="pl-8"
                               {...field}
                             />
@@ -346,7 +473,6 @@ export default function PendingDocumentsPage() {
           </Form>
         </CardContent>
       </Card>
-
       {patientFound && (
         <>
           <Card>
@@ -356,12 +482,20 @@ export default function PendingDocumentsPage() {
             <CardContent>
               <div className="grid grid-cols-3 gap-6">
                 <div>
-                  <h3 className="text-sm font-medium text-gray-500">Nombre Completo</h3>
-                  <p className="mt-1 text-lg font-medium">{patientFound.nombre}</p>
+                  <h3 className="text-sm font-medium text-gray-500">
+                    Nombre Completo
+                  </h3>
+                  <p className="mt-1 text-lg font-medium">
+                    {patientFound.nombre}
+                  </p>
                 </div>
                 <div>
-                  <h3 className="text-sm font-medium text-gray-500">Número de Cédula</h3>
-                  <p className="mt-1 text-lg font-medium">{patientFound.cedula}</p>
+                  <h3 className="text-sm font-medium text-gray-500">
+                    Número de Cédula
+                  </h3>
+                  <p className="mt-1 text-lg font-medium">
+                    {patientFound.cedula}
+                  </p>
                 </div>
                 <div>
                   <h3 className="text-sm font-medium text-gray-500">EPS</h3>
@@ -374,7 +508,9 @@ export default function PendingDocumentsPage() {
           <Card>
             <CardHeader>
               <CardTitle>Documentos Previamente Almacenados</CardTitle>
-              <CardDescription>Estos documentos ya han sido almacenados en el sistema</CardDescription>
+              <CardDescription>
+                Estos documentos ya han sido almacenados en el sistema
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <Table>
@@ -389,9 +525,15 @@ export default function PendingDocumentsPage() {
                   {previousDocuments.map((doc) => (
                     <TableRow key={doc.id}>
                       <TableCell className="font-medium">{doc.type}</TableCell>
-                      <TableCell>{new Date(doc.uploadDate).toLocaleDateString()}</TableCell>
+                      <TableCell>
+                        {new Date(doc.uploadDate).toLocaleDateString()}
+                      </TableCell>
                       <TableCell className="text-right">
-                        <Button variant="ghost" size="sm" onClick={() => previewStoredDocument(doc)}>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => previewStoredDocument(doc)}
+                        >
                           <Eye className="h-4 w-4 mr-1" />
                           Ver
                         </Button>
@@ -406,20 +548,31 @@ export default function PendingDocumentsPage() {
           <Card>
             <CardHeader>
               <CardTitle>Documentación de Entrega de Medicamentos</CardTitle>
-              <CardDescription>Sube documentos adicionales requeridos para la entrega de medicamentos</CardDescription>
+              <CardDescription>
+                Sube documentos adicionales requeridos para la entrega de
+                medicamentos
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               {/* Formulario de Confirmación de Entrega */}
               <div className="border-b pb-6">
                 <div className="flex justify-between items-start mb-2">
                   <div>
-                    <h3 className="text-lg font-medium">Formulario de Confirmación de Entrega</h3>
+                    <h3 className="text-lg font-medium">
+                      Formulario de Confirmación de Entrega
+                    </h3>
                     <p className="text-sm text-gray-500">
-                      Sube o captura una imagen clara del formulario de confirmación de entrega
+                      Sube o captura una imagen clara del formulario de
+                      confirmación de entrega
                     </p>
                   </div>
                   <div className="flex space-x-2">
-                    <Button variant="outline" onClick={() => document.getElementById("confirmacion-upload")?.click()}>
+                    <Button
+                      variant="outline"
+                      onClick={() =>
+                        document.getElementById("confirmacion-upload")?.click()
+                      }
+                    >
                       <Upload className="mr-2 h-4 w-4" />
                       Subir Archivo
                     </Button>
@@ -430,7 +583,10 @@ export default function PendingDocumentsPage() {
                       accept="image/*,.pdf"
                       onChange={(e) => handleFileUpload("confirmacion", e)}
                     />
-                    <Button variant="outline" onClick={() => openCamera("confirmacion")}>
+                    <Button
+                      variant="outline"
+                      onClick={() => openCamera("confirmacion")}
+                    >
                       <Camera className="mr-2 h-4 w-4" />
                       Tomar Foto
                     </Button>
@@ -442,15 +598,23 @@ export default function PendingDocumentsPage() {
                       <div className="flex items-center">
                         <FileText className="h-8 w-8 text-blue-500 mr-2" />
                         <div>
-                          <p className="font-medium">Formulario de Confirmación</p>
-                          <p className="text-sm text-gray-500">Documento capturado</p>
+                          <p className="font-medium">
+                            Formulario de Confirmación
+                          </p>
+                          <p className="text-sm text-gray-500">
+                            Documento capturado
+                          </p>
                         </div>
                       </div>
                       <div className="flex space-x-2">
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => previewCapturedDocument(capturedImages["confirmacion"])}
+                          onClick={() =>
+                            previewCapturedDocument(
+                              capturedImages["confirmacion"]
+                            )
+                          }
                         >
                           <Eye className="h-4 w-4 mr-1" />
                           Ver
@@ -461,13 +625,13 @@ export default function PendingDocumentsPage() {
                           className="text-red-500 hover:text-red-700"
                           onClick={() => {
                             setCapturedImages((prev) => {
-                              const newImages = { ...prev }
-                              delete newImages["confirmacion"]
-                              return newImages
-                            })
+                              const newImages = { ...prev };
+                              delete newImages["confirmacion"];
+                              return newImages;
+                            });
                           }}
                         >
-                          <X className="h-4 w-4 mr-1" />
+                          <Trash className="h-4 w-4 mr-1 text-red-500" />
                           Eliminar
                         </Button>
                       </div>
@@ -480,13 +644,21 @@ export default function PendingDocumentsPage() {
               <div className="border-b pb-6">
                 <div className="flex justify-between items-start mb-2">
                   <div>
-                    <h3 className="text-lg font-medium">Firma de Recibo de Medicamento</h3>
+                    <h3 className="text-lg font-medium">
+                      Firma de Recibo de Medicamento
+                    </h3>
                     <p className="text-sm text-gray-500">
-                      Sube o captura una imagen clara de la firma de recibo de medicamento
+                      Sube o captura una imagen clara de la firma de recibo de
+                      medicamento
                     </p>
                   </div>
                   <div className="flex space-x-2">
-                    <Button variant="outline" onClick={() => document.getElementById("firma-upload")?.click()}>
+                    <Button
+                      variant="outline"
+                      onClick={() =>
+                        document.getElementById("firma-upload")?.click()
+                      }
+                    >
                       <Upload className="mr-2 h-4 w-4" />
                       Subir Archivo
                     </Button>
@@ -497,7 +669,10 @@ export default function PendingDocumentsPage() {
                       accept="image/*,.pdf"
                       onChange={(e) => handleFileUpload("firma", e)}
                     />
-                    <Button variant="outline" onClick={() => openCamera("firma")}>
+                    <Button
+                      variant="outline"
+                      onClick={() => openCamera("firma")}
+                    >
                       <Camera className="mr-2 h-4 w-4" />
                       Tomar Foto
                     </Button>
@@ -510,14 +685,18 @@ export default function PendingDocumentsPage() {
                         <FileText className="h-8 w-8 text-blue-500 mr-2" />
                         <div>
                           <p className="font-medium">Firma de Recibo</p>
-                          <p className="text-sm text-gray-500">Documento capturado</p>
+                          <p className="text-sm text-gray-500">
+                            Documento capturado
+                          </p>
                         </div>
                       </div>
                       <div className="flex space-x-2">
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => previewCapturedDocument(capturedImages["firma"])}
+                          onClick={() =>
+                            previewCapturedDocument(capturedImages["firma"])
+                          }
                         >
                           <Eye className="h-4 w-4 mr-1" />
                           Ver
@@ -528,13 +707,13 @@ export default function PendingDocumentsPage() {
                           className="text-red-500 hover:text-red-700"
                           onClick={() => {
                             setCapturedImages((prev) => {
-                              const newImages = { ...prev }
-                              delete newImages["firma"]
-                              return newImages
-                            })
+                              const newImages = { ...prev };
+                              delete newImages["firma"];
+                              return newImages;
+                            });
                           }}
                         >
-                          <X className="h-4 w-4 mr-1" />
+                          <Trash className="h-4 w-4 mr-1 text-red-500" />
                           Eliminar
                         </Button>
                       </div>
@@ -547,44 +726,59 @@ export default function PendingDocumentsPage() {
               <div className="pb-6">
                 <div className="flex justify-between items-start mb-2">
                   <div>
-                    <h3 className="text-lg font-medium">Foto de Identificación del Paciente</h3>
+                    <h3 className="text-lg font-medium">
+                      Foto de Identificación del Paciente
+                    </h3>
                     <p className="text-sm text-gray-500">
-                      Sube o captura una imagen clara de la foto de identificación del paciente
+                      Sube o captura una imagen clara de la foto de
+                      identificación del paciente
                     </p>
                   </div>
                   <div className="flex space-x-2">
-                    <Button variant="outline" onClick={() => document.getElementById("foto-upload")?.click()}>
+                    <Button
+                      variant="outline"
+                      onClick={() =>
+                        document.getElementById("cedula-upload")?.click()
+                      }
+                    >
                       <Upload className="mr-2 h-4 w-4" />
                       Subir Archivo
                     </Button>
                     <input
-                      id="foto-upload"
+                      id="cedula-upload"
                       type="file"
                       className="hidden"
                       accept="image/*,.pdf"
-                      onChange={(e) => handleFileUpload("foto", e)}
+                      onChange={(e) => handleFileUpload("cedula", e)}
                     />
-                    <Button variant="outline" onClick={() => openCamera("foto")}>
+                    <Button
+                      variant="outline"
+                      onClick={() => openCamera("cedula")}
+                    >
                       <Camera className="mr-2 h-4 w-4" />
                       Tomar Foto
                     </Button>
                   </div>
                 </div>
-                {capturedImages["foto"] && (
+                {capturedImages["cedula"] && (
                   <div className="mt-4 relative bg-gray-50 p-4 rounded-md">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center">
                         <FileText className="h-8 w-8 text-blue-500 mr-2" />
                         <div>
                           <p className="font-medium">Foto de Identificación</p>
-                          <p className="text-sm text-gray-500">Documento capturado</p>
+                          <p className="text-sm text-gray-500">
+                            Documento capturado
+                          </p>
                         </div>
                       </div>
                       <div className="flex space-x-2">
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => previewCapturedDocument(capturedImages["foto"])}
+                          onClick={() =>
+                            previewCapturedDocument(capturedImages["cedula"])
+                          }
                         >
                           <Eye className="h-4 w-4 mr-1" />
                           Ver
@@ -595,13 +789,13 @@ export default function PendingDocumentsPage() {
                           className="text-red-500 hover:text-red-700"
                           onClick={() => {
                             setCapturedImages((prev) => {
-                              const newImages = { ...prev }
-                              delete newImages["foto"]
-                              return newImages
-                            })
+                              const newImages = { ...prev };
+                              delete newImages["cedula"];
+                              return newImages;
+                            });
                           }}
                         >
-                          <X className="h-4 w-4 mr-1" />
+                          <Trash className="h-4 w-4 mr-1 text-red-500" />
                           Eliminar
                         </Button>
                       </div>
@@ -623,18 +817,24 @@ export default function PendingDocumentsPage() {
           </Card>
         </>
       )}
-
       {/* Diálogo para la cámara */}
       <Dialog open={isCameraOpen} onOpenChange={setIsCameraOpen}>
         <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
             <DialogTitle>Capturar Documento</DialogTitle>
-            <DialogDescription>Posiciona el documento frente a la cámara y haz clic en "Capturar"</DialogDescription>
+            <DialogDescription>
+              Posiciona el documento frente a la cámara y haz clic en "Capturar"
+            </DialogDescription>
           </DialogHeader>
 
           <div className="flex flex-col items-center space-y-4">
             <div className="relative w-full border rounded-lg overflow-hidden">
-              <video ref={videoRef} autoPlay playsInline className="w-full h-auto" />
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                className="w-full h-auto"
+              />
             </div>
 
             <div className="flex space-x-4">
@@ -652,8 +852,7 @@ export default function PendingDocumentsPage() {
           <canvas ref={canvasRef} className="hidden" />
         </DialogContent>
       </Dialog>
-
-      {/* Diálogo para previsualización de documentos capturados */}
+      {/* Diálogo para previsualización de documentos */}
       <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
         <DialogContent className="sm:max-w-[700px]">
           <DialogHeader>
@@ -673,23 +872,32 @@ export default function PendingDocumentsPage() {
               Cerrar
             </Button>
             {previewImage && (
-              <Button onClick={() => window.open(previewImage, "_blank")}>
-                <Download className="mr-2 h-4 w-4" />
-                Descargar
-              </Button>
+              <a href={previewImage} download="documento.png">
+                <Button asChild>
+                  <span>
+                    <Download className="mr-2 h-4 w-4" />
+                    Descargar
+                  </span>
+                </Button>
+              </a>
             )}
           </div>
         </DialogContent>
       </Dialog>
-
       {/* Diálogo para previsualización de documentos almacenados */}
-      <Dialog open={isDocumentPreviewOpen} onOpenChange={setIsDocumentPreviewOpen}>
+      <Dialog
+        open={isDocumentPreviewOpen}
+        onOpenChange={setIsDocumentPreviewOpen}
+      >
         <DialogContent className="sm:max-w-[700px]">
           <DialogHeader>
             <DialogTitle>{currentPreviewDocument?.type}</DialogTitle>
             <DialogDescription>
               Subido el{" "}
-              {currentPreviewDocument?.uploadDate && new Date(currentPreviewDocument.uploadDate).toLocaleDateString()}
+              {currentPreviewDocument?.uploadDate &&
+                new Date(
+                  currentPreviewDocument.uploadDate
+                ).toLocaleDateString()}
             </DialogDescription>
           </DialogHeader>
 
@@ -702,17 +910,37 @@ export default function PendingDocumentsPage() {
           </div>
 
           <div className="flex justify-end space-x-2">
-            <Button variant="outline" onClick={() => setIsDocumentPreviewOpen(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setIsDocumentPreviewOpen(false)}
+            >
               Cerrar
             </Button>
-            <Button onClick={() => window.open(currentPreviewDocument?.fileUrl, "_blank")}>
+            <Button
+              onClick={() =>
+                window.open(currentPreviewDocument?.fileUrl, "_blank")
+              }
+            >
               <Download className="mr-2 h-4 w-4" />
               Descargar
             </Button>
           </div>
         </DialogContent>
       </Dialog>
+      {/* Diálogo para capturar ambas caras del documento de identidad */}
+      <Dialog open={showBackAlert} onOpenChange={setShowBackAlert}>
+        <DialogContent className="sm:max-w-[400px] text-center">
+          <DialogHeader>
+            <DialogTitle>Voltea el Documento de identidad</DialogTitle>
+            <p className="text-sm text-muted-foreground mt-2">
+              Por favor, voltea el documento para capturar la parte trasera.
+            </p>
+          </DialogHeader>
+          <DialogFooter className="mt-4">
+            <Button onClick={() => setShowBackAlert(false)}>Continuar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
-  )
+  );
 }
-
